@@ -1,37 +1,68 @@
-import { useState, useMemo } from "react";
+/**
+ * Trang danh sách sản phẩm — hỗ trợ lọc theo danh mục, thương hiệu, giá
+ * và tìm kiếm theo từ khóa từ URL search params.
+ */
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { SlidersHorizontal, Grid3X3, List } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { PRODUCTS, CATEGORIES, BRANDS } from "@/lib/mock-data";
 import ProductCard from "@/components/product/ProductCard";
 
 export default function Products() {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const searchParam = searchParams.get("search");
+
   const [selectedCategory, setSelectedCategory] = useState(categoryParam || "");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [sortBy, setSortBy] = useState("popular");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 500000]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Đồng bộ category từ URL khi thay đổi
+  useEffect(() => {
+    setSelectedCategory(categoryParam || "");
+  }, [categoryParam]);
+
   const filtered = useMemo(() => {
     let result = PRODUCTS;
+
+    // Tìm kiếm theo từ khóa
+    if (searchParam) {
+      const query = searchParam.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          p.brand.toLowerCase().includes(query) ||
+          p.description.toLowerCase().includes(query) ||
+          p.category.toLowerCase().includes(query)
+      );
+    }
+
     if (selectedCategory) result = result.filter((p) => p.category === selectedCategory);
     if (selectedBrand) result = result.filter((p) => p.brand === selectedBrand);
     result = result.filter((p) => p.price >= priceRange[0] && p.price <= priceRange[1]);
+
+    // Sắp xếp
     if (sortBy === "price-asc") result = [...result].sort((a, b) => a.price - b.price);
     if (sortBy === "price-desc") result = [...result].sort((a, b) => b.price - a.price);
     if (sortBy === "popular") result = [...result].sort((a, b) => b.reviewCount - a.reviewCount);
     if (sortBy === "rating") result = [...result].sort((a, b) => b.rating - a.rating);
+
     return result;
-  }, [selectedCategory, selectedBrand, sortBy, priceRange]);
+  }, [selectedCategory, selectedBrand, sortBy, priceRange, searchParam]);
+
+  const pageTitle = searchParam
+    ? `Kết quả tìm kiếm: "${searchParam}"`
+    : selectedCategory
+      ? CATEGORIES.find((c) => c.id === selectedCategory)?.name || "Sản phẩm"
+      : "Tất cả sản phẩm";
 
   return (
     <div className="container py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">
-            {selectedCategory ? CATEGORIES.find((c) => c.id === selectedCategory)?.name || "Sản phẩm" : "Tất cả sản phẩm"}
-          </h1>
+          <h1 className="text-2xl font-bold">{pageTitle}</h1>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} sản phẩm</p>
         </div>
         <div className="flex items-center gap-2">
@@ -106,6 +137,7 @@ export default function Products() {
             <h3 className="text-sm font-semibold mb-3">Khoảng giá</h3>
             <div className="space-y-2">
               {[
+                [0, 500000, "Tất cả"],
                 [0, 10000, "Dưới 10.000₫"],
                 [10000, 50000, "10.000₫ - 50.000₫"],
                 [50000, 100000, "50.000₫ - 100.000₫"],
@@ -114,7 +146,11 @@ export default function Products() {
                 <button
                   key={label as string}
                   onClick={() => setPriceRange([min as number, max as number])}
-                  className="block w-full text-left px-3 py-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  className={`block w-full text-left px-3 py-1.5 rounded-md text-sm transition-colors ${
+                    priceRange[0] === min && priceRange[1] === max
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  }`}
                 >
                   {label as string}
                 </button>

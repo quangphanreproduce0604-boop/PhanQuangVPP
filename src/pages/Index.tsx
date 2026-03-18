@@ -1,7 +1,11 @@
+/**
+ * Trang chủ — hero, features, danh mục, sản phẩm nổi bật, combo, giảm giá, CTA.
+ */
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Truck, Shield, Headphones, Star } from "lucide-react";
+import { ArrowRight, Truck, Shield, Headphones, Star, Package } from "lucide-react";
 import { PRODUCTS, CATEGORIES, formatCurrency } from "@/lib/mock-data";
+import { COMBOS, getComboOriginalPrice, getComboSavingPercent } from "@/lib/combo-data";
 import ProductCard from "@/components/product/ProductCard";
 import { Button } from "@/components/ui/button";
 
@@ -43,12 +47,11 @@ export default function Index() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="rounded-xl">
-                <Link to="/products?category=but">Bút & Viết</Link>
+                <Link to="/combos">Combo ưu đãi</Link>
               </Button>
             </div>
           </motion.div>
         </div>
-        {/* Decorative */}
         <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
         <div className="absolute -right-10 bottom-0 h-60 w-60 rounded-full bg-accent/10 blur-3xl" />
       </section>
@@ -107,6 +110,47 @@ export default function Index() {
           {featuredProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
+        </div>
+      </section>
+
+      {/* Combos */}
+      <section className="bg-primary/5 py-12">
+        <div className="container">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">🎁 Combo ưu đãi</h2>
+              <p className="text-sm text-muted-foreground mt-1">Mua theo bộ — tiết kiệm hơn!</p>
+            </div>
+            <Link to="/combos" className="text-sm text-primary font-medium hover:underline">
+              Xem tất cả →
+            </Link>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {COMBOS.slice(0, 4).map((combo) => (
+              <Link
+                key={combo.id}
+                to="/combos"
+                className="p-4 rounded-xl border border-border bg-card hover:shadow-card transition-shadow"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="h-5 w-5 text-primary" />
+                  <h3 className="text-sm font-semibold">{combo.name}</h3>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{combo.description}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-base font-bold text-primary tabular-nums">
+                    {formatCurrency(combo.comboPrice)}
+                  </span>
+                  <span className="text-xs text-muted-foreground line-through tabular-nums">
+                    {formatCurrency(getComboOriginalPrice(combo))}
+                  </span>
+                  <span className="text-xs text-accent font-bold">
+                    -{getComboSavingPercent(combo)}%
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
