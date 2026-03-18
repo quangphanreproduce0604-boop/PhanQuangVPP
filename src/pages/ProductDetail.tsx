@@ -1,7 +1,19 @@
+/**
+ * Trang chi tiết sản phẩm — bao gồm:
+ * - Thông tin sản phẩm (giá, mô tả, specs, màu sắc)
+ * - Bảng giá sỉ (wholesale) khi mua số lượng lớn
+ * - Tùy chỉnh sản phẩm (in tên/logo)
+ * - Đánh giá & bình luận
+ * - Sản phẩm liên quan
+ */
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
-import { ArrowLeft, Minus, Plus, Heart, ShoppingCart, Star, Truck, Shield, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft, Minus, Plus, Heart, ShoppingCart, Star,
+  Truck, Shield, RotateCcw, Layers, Pencil
+} from "lucide-react";
 import { PRODUCTS, formatCurrency } from "@/lib/mock-data";
+import { WHOLESALE_TIERS, getWholesalePrice, getCurrentTier } from "@/lib/wholesale-utils";
 import { useCartStore } from "@/store/cart-store";
 import { useWishlistStore } from "@/store/wishlist-store";
 import { Button } from "@/components/ui/button";
@@ -12,6 +24,9 @@ export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const product = PRODUCTS.find((p) => p.id === id);
   const [quantity, setQuantity] = useState(1);
+  const [selectedColor, setSelectedColor] = useState(0);
+  const [customText, setCustomText] = useState("");
+  const [showCustomize, setShowCustomize] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlistStore();
 
@@ -20,14 +35,31 @@ export default function ProductDetail() {
       <div className="container py-20 text-center">
         <p className="text-muted-foreground">Sản phẩm không tồn tại.</p>
         <Button asChild variant="outline" className="mt-4 rounded-xl">
-          <Link to="/products"><ArrowLeft className="mr-2 h-4 w-4" /> Quay lại</Link>
+          <Link to="/products">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Quay lại
+          </Link>
         </Button>
       </div>
     );
   }
 
   const isWished = has(product.id);
-  const relatedProducts = PRODUCTS.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
+  const relatedProducts = PRODUCTS.filter(
+    (p) => p.category === product.category && p.id !== product.id
+  ).slice(0, 4);
+
+  // Tính giá sỉ
+  const currentTier = getCurrentTier(quantity);
+  const wholesalePrice = getWholesalePrice(product.price, quantity);
+  const isWholesale = currentTier !== null;
+
+  const handleAddToCart = () => {
+    addItem(product, quantity);
+    const msg = customText
+      ? `Đã thêm ${quantity} "${product.name}" (tùy chỉnh: ${customText}) vào giỏ`
+      : `Đã thêm ${quantity} "${product.name}" vào giỏ`;
+    toast.success(msg);
+  };
 
   return (
     <div className="container py-8">
@@ -55,19 +87,41 @@ export default function ProductDetail() {
           <div className="flex items-center gap-2 mt-3">
             <div className="flex">
               {[1, 2, 3, 4, 5].map((star) => (
-                <Star key={star} className={`h-4 w-4 ${star <= Math.round(product.rating) ? "fill-accent text-accent" : "text-border"}`} />
+                <Star
+                  key={star}
+                  className={`h-4 w-4 ${
+                    star <= Math.round(product.rating) ? "fill-accent text-accent" : "text-border"
+                  }`}
+                />
               ))}
             </div>
-            <span className="text-sm text-muted-foreground">{product.rating} ({product.reviewCount} đánh giá)</span>
+            <span className="text-sm text-muted-foreground">
+              {product.rating} ({product.reviewCount} đánh giá)
+            </span>
           </div>
 
           {/* Price */}
           <div className="mt-4 flex items-baseline gap-3">
-            <span className="text-3xl font-bold tabular-nums">{formatCurrency(product.price)}</span>
-            {product.originalPrice && (
-              <span className="text-lg text-muted-foreground line-through tabular-nums">{formatCurrency(product.originalPrice)}</span>
+            <span className="text-3xl font-bold tabular-nums">
+              {isWholesale ? formatCurrency(wholesalePrice) : formatCurrency(product.price)}
+            </span>
+            {product.originalPrice && !isWholesale && (
+              <span className="text-lg text-muted-foreground line-through tabular-nums">
+                {formatCurrency(product.originalPrice)}
+              </span>
+            )}
+            {isWholesale && (
+              <span className="text-sm text-green-600 font-medium">
+                Giá sỉ (-{currentTier!.discountPercent}%)
+              </span>
             )}
           </div>
+          {isWholesale && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Giá lẻ: {formatCurrency(product.price)} • Tiết kiệm:{" "}
+              {formatCurrency((product.price - wholesalePrice) * quantity)}
+            </p>
+          )}
 
           {/* Stock */}
           <p className={`text-sm mt-2 ${product.stock > 0 ? "text-green-600" : "text-destructive"}`}>
@@ -95,7 +149,15 @@ export default function ProductDetail() {
               <p className="text-sm font-medium mb-2">Màu sắc:</p>
               <div className="flex gap-2">
                 {product.colors.map((color, i) => (
-                  <button key={color} className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${i === 0 ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-foreground"}`}>
+                  <button
+                    key={color}
+                    onClick={() => setSelectedColor(i)}
+                    className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                      i === selectedColor
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border text-muted-foreground hover:border-foreground"
+                    }`}
+                  >
                     {color}
                   </button>
                 ))}
@@ -103,29 +165,94 @@ export default function ProductDetail() {
             </div>
           )}
 
+          {/* Wholesale pricing table */}
+          <div className="mt-4 p-3 rounded-xl bg-secondary/50 border border-border">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Bảng giá sỉ</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {WHOLESALE_TIERS.map((tier) => (
+                <div
+                  key={tier.minQuantity}
+                  className={`flex justify-between text-xs px-2.5 py-1.5 rounded-md ${
+                    currentTier?.minQuantity === tier.minQuantity
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  <span>{tier.label}</span>
+                  <span className="tabular-nums">-{tier.discountPercent}%</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">
+              💡 Liên hệ hotline 1900 1234 để báo giá đơn hàng đặc biệt.
+            </p>
+          </div>
+
+          {/* Customization */}
+          <div className="mt-4">
+            <button
+              onClick={() => setShowCustomize(!showCustomize)}
+              className="flex items-center gap-1.5 text-sm text-primary font-medium hover:underline"
+            >
+              <Pencil className="h-4 w-4" />
+              Tùy chỉnh sản phẩm (in tên/logo)
+            </button>
+            {showCustomize && (
+              <div className="mt-2 p-3 rounded-xl border border-border space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Nhập nội dung cần in lên sản phẩm (tên, logo, slogan...). Phí tùy chỉnh sẽ
+                  được báo giá riêng.
+                </p>
+                <textarea
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="VD: In logo công ty ABC, tên nhân viên..."
+                  rows={2}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Quantity + Actions */}
           <div className="mt-6 flex items-center gap-3">
             <div className="flex items-center border border-border rounded-xl">
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
                 <Minus className="h-4 w-4" />
               </button>
-              <span className="w-12 text-center text-sm font-medium tabular-nums">{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground">
+              <input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
+                className="w-16 text-center text-sm font-medium tabular-nums border-0 focus:outline-none bg-transparent"
+              />
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
                 <Plus className="h-4 w-4" />
               </button>
             </div>
-            <Button
-              size="lg"
-              className="flex-1 rounded-xl"
-              onClick={() => { addItem(product, quantity); toast.success(`Đã thêm ${quantity} "${product.name}" vào giỏ`); }}
-            >
-              <ShoppingCart className="mr-2 h-4 w-4" /> Thêm vào giỏ
+            <Button size="lg" className="flex-1 rounded-xl" onClick={handleAddToCart}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Thêm vào giỏ
+              {isWholesale && ` — ${formatCurrency(wholesalePrice * quantity)}`}
             </Button>
             <Button
               size="lg"
               variant="outline"
               className="rounded-xl"
-              onClick={() => { toggle(product.id); toast(isWished ? "Đã xóa khỏi yêu thích" : "Đã thêm vào yêu thích"); }}
+              onClick={() => {
+                toggle(product.id);
+                toast(isWished ? "Đã xóa khỏi yêu thích" : "Đã thêm vào yêu thích");
+              }}
             >
               <Heart className={`h-4 w-4 ${isWished ? "fill-destructive text-destructive" : ""}`} />
             </Button>
@@ -151,7 +278,9 @@ export default function ProductDetail() {
       <section className="mt-12">
         <h2 className="text-xl font-bold mb-4">Đánh giá ({product.reviews.length})</h2>
         {product.reviews.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center border border-border rounded-xl">Chưa có đánh giá nào.</p>
+          <p className="text-sm text-muted-foreground py-8 text-center border border-border rounded-xl">
+            Chưa có đánh giá nào.
+          </p>
         ) : (
           <div className="space-y-4">
             {product.reviews.map((review) => (
@@ -162,7 +291,12 @@ export default function ProductDetail() {
                 </div>
                 <div className="flex mt-1">
                   {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} className={`h-3.5 w-3.5 ${star <= review.stars ? "fill-accent text-accent" : "text-border"}`} />
+                    <Star
+                      key={star}
+                      className={`h-3.5 w-3.5 ${
+                        star <= review.stars ? "fill-accent text-accent" : "text-border"
+                      }`}
+                    />
                   ))}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">{review.comment}</p>

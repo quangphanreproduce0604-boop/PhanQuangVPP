@@ -19,6 +19,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Profile from "./pages/Profile";
 import Wishlist from "./pages/Wishlist";
+import Combos from "./pages/Combos";
 import NotFound from "./pages/NotFound";
 
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -54,6 +55,7 @@ const App = () => (
           <Route path="/cart" element={<CustomerLayout><Cart /></CustomerLayout>} />
           <Route path="/checkout" element={<CustomerLayout><Checkout /></CustomerLayout>} />
           <Route path="/order-tracking" element={<CustomerLayout><OrderTracking /></CustomerLayout>} />
+          <Route path="/combos" element={<CustomerLayout><Combos /></CustomerLayout>} />
           <Route path="/login" element={<CustomerLayout><Login /></CustomerLayout>} />
           <Route path="/register" element={<CustomerLayout><Register /></CustomerLayout>} />
           <Route path="/profile" element={<CustomerLayout><Profile /></CustomerLayout>} />
